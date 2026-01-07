@@ -2,114 +2,77 @@ import os
 import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
-from werkzeug.utils import secure_filename
-from functools import wraps
 
-# إعداد المسارات بشكل صارم لـ Render
+# --- إعدادات المسارات الصارمة لبيئة Render ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
-STATIC_DIR = os.path.join(BASE_DIR, 'static')
-# ملاحظة: سنخزن الصور داخل static لضمان ظهورها
-UPLOAD_FOLDER = os.path.join(STATIC_DIR, 'uploads')
+# التأكد من أن Flask يرى مجلدات الـ templates والـ static
+app = Flask(__name__, 
+            template_folder=os.path.join(BASE_DIR, 'templates'),
+            static_folder=os.path.join(BASE_DIR, 'static'))
+
+app.config["SECRET_KEY"] = "citizen_eye_9988"
 DB_PATH = os.path.join(BASE_DIR, "citizen_eye.db")
 
-app = Flask(__name__, 
-            template_folder=TEMPLATE_DIR,
-            static_folder=STATIC_DIR)
-
-app.config["SECRET_KEY"] = "super-secret-key-2026"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-# التأكد من وجود مجلد الصور
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def init_db():
-    with app.app_context():
-        conn = get_db()
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS complaints (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            phone TEXT,
-            location TEXT NOT NULL,
-            category TEXT NOT NULL,
-            description TEXT NOT NULL,
-            image_path TEXT,
-            status TEXT NOT NULL DEFAULT 'جديدة',
-            created_at TEXT NOT NULL
-        )
-        """)
-        conn.commit()
-        conn.close()
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS complaints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT,
+                location TEXT NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL,
+                image_path TEXT,
+                status TEXT NOT NULL DEFAULT 'جديدة',
+                created_at TEXT NOT NULL
+            )
+            """)
+    except Exception as e:
+        print(f"DATABASE ERROR: {e}")
 
-# حماية صفحة الإدارة
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
+# تشغيل القاعدة فوراً
+init_db()
 
 @app.route("/")
 def index():
+    # كود فحص ذكي: لو الملف ناقص هيقلك مكانه فين بدل ما يعلق السيرفر
+    t_path = os.path.join(app.template_folder, 'index.html')
+    if not os.path.exists(t_path):
+        return f"خطأ تقني: السيرفر يبحث عن index.html في المسار التالي ولا يجده: {t_path}. تأكد من وجود مجلد templates وداخله الملف."
+    
     return render_template("index.html")
 
 @app.route("/submit", methods=["POST"])
 def submit():
     try:
         name = request.form.get("name")
-        phone = request.form.get("phone")
         location = request.form.get("location")
         category = request.form.get("category")
         description = request.form.get("description")
-        file = request.files.get("image")
-
-        image_path = None
-        if file and file.filename != '':
-            filename = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(file.filename)
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-            image_path = "uploads/" + filename
-
-        conn = get_db()
-        conn.execute(
-            "INSERT INTO complaints (name, phone, location, category, description, image_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (name, phone, location, category, description, image_path, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        )
-        conn.commit()
-        conn.close()
-        flash("تم الإرسال بنجاح!", "success")
+        
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT INTO complaints (name, location, category, description, created_at) VALUES (?, ?, ?, ?, ?)",
+                (name, location, category, description, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            )
+        flash("تم استلام شكواك بنجاح!", "success")
     except Exception as e:
-        flash(f"خطأ: {str(e)}", "error")
+        flash(f"فشل الإرسال: {str(e)}", "error")
     return redirect(url_for("index"))
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        if request.form.get("password") == "admin123":
-            session["logged_in"] = True
-            return redirect(url_for("admin"))
-    return '<h2>دخول الإدارة</h2><form method="post"><input type="password" name="password"><button type="submit">دخول</button></form>'
-
 @app.route("/admin")
-@login_required
 def admin():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM complaints ORDER BY created_at DESC").fetchall()
-    conn.close()
+    if not os.path.exists(os.path.join(app.template_folder, 'admin.html')):
+        return "خطأ: ملف admin.html مفقود في مجلد templates."
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM complaints ORDER BY created_at DESC").fetchall()
     return render_template("admin.html", complaints=rows)
 
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    return jsonify({"reply": "أهلاً بك، سأقوم بمساعدتك فوراً!"})
-
-# تشغيل القاعدة تلقائياً
-init_db()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    # ريندر يستخدم بورت 10000 غالباً، لكن Gunicorn سيتولى الأمر
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
