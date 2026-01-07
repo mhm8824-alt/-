@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>لوحة الإدارة - عين المواطن</title>
+  <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+  <header class="header"><h1>لوحة الإدارة</h1></header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash">
+        {% for category, message in messages %}
+          <div class="flash-item {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="container">
+    <section class="card">
+      <h2>الشكاوى</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th><th>الاسم</th><th>الهاتف</th><th>الموقع</th><th>الفئة</th><th>الوصف</th><th>الصورة</th><th>الحالة</th><th>تم الإنشاء</th><th>تحديث</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in complaints %}
+          <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.phone or "-" }}</td>
+            <td>{{ c.location }}</td>
+            <td>{{ c.category }}</td>
+            <td style="max-width:300px">{{ c.description }}</td>
+            <td>
+              {% if c.image_path %}
+                <a href="{{ c.image_path }}" target="_blank">عرض</a>
+              {% else %}-{% endif %}
+            </td>
+            <td>{{ c.status }}</td>
+            <td>{{ c.created_at }}</td>
+            <td>
+              <form action="/admin/update_status" method="post" class="inline-form">
+                <input type="hidden" name="id" value="{{ c.id }}">
+                <select name="status">
+                  <option {% if c.status=='جديدة' %}selected{% endif %}>جديدة</option>
+                  <option {% if c.status=='قيد المعالجة' %}selected{% endif %}>قيد المعالجة</option>
+                  <option {% if c.status=='منتهية' %}selected{% endif %}>منتهية</option>
+                </select>
+                <button class="btn small" type="submit">حفظ</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

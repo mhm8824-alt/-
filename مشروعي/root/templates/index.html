@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>عين المواطن</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/static/style.css" rel="stylesheet">
+  <!-- ضع كود الشات بوت هنا (السكربت الخاص بالمنصة) -->
+  <!-- مثال: 
+  <script>
+    // Chatbot Widget Code from the provider
+  </script>
+  -->
+</head>
+<body>
+  <header class="header">
+    <h1>عين المواطن</h1>
+    <p>أبلغ عن المشاكل الخدمية في منطقتك بسهولة.</p>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash">
+        {% for category, message in messages %}
+          <div class="flash-item {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="container">
+    <section class="card">
+      <h2>نموذج إرسال شكوى</h2>
+      <form action="/submit" method="post" enctype="multipart/form-data" class="form">
+        <div class="grid">
+          <label>الاسم الكامل
+            <input type="text" name="name" required>
+          </label>
+          <label>رقم الهاتف (اختياري)
+            <input type="text" name="phone" placeholder="09xxxxxxxx">
+          </label>
+        </div>
+
+        <div class="grid">
+          <label>الموقع
+            <input type="text" name="location" required placeholder="الحي، الشارع، أقرب معلم">
+          </label>
+          <label>نوع المشكلة
+            <select name="category" required>
+              <option value="مياه">مياه</option>
+              <option value="كهرباء">كهرباء</option>
+              <option value="طرق">طرق</option>
+              <option value="نظافة">نظافة</option>
+              <option value="أخرى">أخرى</option>
+            </select>
+          </label>
+        </div>
+
+        <label>وصف الشكوى
+          <textarea name="description" rows="4" required placeholder="صف المشكلة بإيجاز ووضوح"></textarea>
+        </label>
+
+        <label>صورة توضيحية (اختياري)
+          <input type="file" name="image" accept=".png,.jpg,.jpeg,.gif">
+        </label>
+
+        <button type="submit" class="btn">إرسال الشكوى</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>مساعد الإرشاد</h2>
+      <div id="chat" class="chat">
+        <div class="bubble bot">مرحبًا! كيف أقدر أساعدك في تعبئة الشكوى؟</div>
+      </div>
+      <div class="chat-input">
+        <input id="chat-input" type="text" placeholder="اكتب سؤالك هنا...">
+        <button id="chat-send" class="btn">إرسال</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>خدمة مجتمعية — سوريا</small>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
